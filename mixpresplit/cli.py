@@ -10,38 +10,21 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from collections import OrderedDict
 from wavinfo import WavInfoReader
+import click
 
-
-
-# Not implemented yet
-FLAGS = [
-    "-n/--no-overwrite",
-    "-y/--overwrite",
-    "--ignore-mixdown",
-    "--only-circled",
-    "--flac",
-    "--32",
-    "--24",
-    "--16",
-    "-d/--dry-run",
-    "-open-destination"
-]
-
-# Not implemented yet
-OPTIONS = [
-    "-f/--filename",
-    "-t/--takes",    # Include takes from till
-    "-x/--ignore",   # Ignore takes from till
-    "-s/--scene"     # Override Scenename
-    "-c/--channel"   # Override Channel Name
-]
-
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 scene_pattern    = re.compile(r"sSCENE=(.*?)\s")
 take_pattern     = re.compile(r"sTAKE=(.*?)\s")
 tape_pattern     = re.compile(r"sTAPE=(.*?)\s")
 circled_pattern  = re.compile(r"sCIRCLED=(.*?)\s")
 speed_pattern    = re.compile(r"sSPEED=(.*?)\s")
+
+# Filter patterns
+filter_take_pattern       = re.compile(r'(\d-\d|\d|.+)')
+filter_take_pattern_digit = re.compile(r'^(\d)$')
+filter_take_pattern_range = re.compile(r'^(\d-\d)$')
+filter_take_pattern_word  = re.compile(r'^(.+)$')
 
 
 FMT = [
@@ -233,21 +216,19 @@ def expand_outpath(outpath: str , meta: dict, channel: int=0) -> str:
     return outpath
 
 
-def split(meta, outpath):
+def split(meta, outpath, options):
     # Expand the output
     outpath = expand_outpath(outpath, meta)
 
-
-
     # Construct channel mapping and filenames for output
-    outfiles = [(i, "{}-{:03d}.{}-{}.WAV".format(meta.scene, meta.take, i, t.replace(" ", "_"))) for i, t in meta.tracks.items()]
+    outfiles = [(i, trackname) for i, trackname in meta.tracks.items()]
 
     # If no Stereo Master is recorded first channel would be at index 3
     # correct this offset by subtracting this
     smallest = min(meta.tracks.keys())
     
     # Add -map [FL] /my/path/SceneName-001.1-Trackname.WAV:
-    for i, outfile  in outfiles:
+    for i, trackname  in outfiles:
 
         # Construct basic command
         cmd = [
@@ -264,83 +245,179 @@ def split(meta, outpath):
         # Which Codec shall be used
         cmd.append("-c:a")
         cmd.append(meta.codec)
+
+        included = False
+
+        # Functionality to include tracks
+        if options["include-tracks"] is not None:
+            include_track_matches = re.findall(filter_take_pattern, options["include-tracks"])
+            
+            include_track_numbers = []
+            if len(include_track_matches) > 0:
+                for match in include_track_matches:
+                    if re.match(filter_take_pattern_range, match):
+                        start, end = [int(i) for i in match.split("-")]
+                        for t in range(start, end+1):
+                            include_track_numbers.append(t)
+                    if re.match(filter_take_pattern_word, match):
+                        if match in trackname:
+                            include_track_numbers.append(i)
+                    if re.match(filter_take_pattern_digit, match):
+                        include_track_numbers.append(int(match))
+            if i in include_track_numbers:
+                included = True
+
+        if not included and options["ignore-tracks"] is not None:
+            # Functionality to ignore tracks
+            ignore_track_matches = re.findall(filter_take_pattern, options["ignore-tracks"])
+
+            ignore_track_numbers = []
+            if len(ignore_track_matches) > 0:
+                for match in ignore_track_matches:
+                    if re.match(filter_take_pattern_range, match):
+                        start, end = [int(i) for i in match.split("-")]
+                        for t in range(start, end+1):
+                            ignore_track_numbers.append(t)
+                    if re.match(filter_take_pattern_word, match):
+                        if match in trackname:
+                            ignore_track_numbers.append(i)
+                    if re.match(filter_take_pattern_digit, match):
+                        ignore_track_numbers.append(int(match))
+            if i in ignore_track_numbers:
+                continue
         
         # expand the Outpath per Track
         patched_outpath = expand_outpath(outpath, meta, i)
+
+        # For each --replace foo use the according --with bar
+        for i, r in enumerate(options["replace"]):
+            patched_outpath = patched_outpath.replace(r, options["with"][i])
 
         # Add extension if there is none
         if not patched_outpath.lower().endswith(".wav"):
             patched_outpath = "{}.wav".format(patched_outpath)
         
         # Create Outpath if it doesn't exist
-        if not os.path.isdir(patched_outpath):
+        if not os.path.isdir(patched_outpath) and not options["dry-run"]:
             os.makedirs(os.path.dirname(patched_outpath), exist_ok=True)
         cmd.append(patched_outpath)
-        print("    [{}] -> {}".format(channel, patched_outpath))
+        
+
+        # Set overwrite option in ffmpeg if flag is found
+        if options["overwrite"]:
+            cmd.append("-y") 
 
         cmd.append("-hide_banner") 
         cmd.append("-loglevel")
         cmd.append("error")
 
-        subprocess.check_output(cmd)
+        if not options["dry-run"]:
+            subprocess.check_output(cmd)
+            print("    [{}] -> {}".format(channel, patched_outpath))
+        else:
+            print("    [{}] -> {} (Dry Run)".format(channel, patched_outpath))
 
-def main():
-    if len(sys.argv) <= 2:
-        print("============================ MIXPRESPLIT ================================")
-        print("This is a CLI-Utility that helps splitting polyWav files that are made")
-        print("by a Sounddevices MixPre Recorder.")
-        print()
-        print("This is (for now) more useful than the existing solution by Sounddevices")
-        print("because it can handle 32 Bit recordings properly and can create output")
-        print("directories based on the metadata.")
-        print()
-        print("Usage:")
-        print("    mixpre [INPUTDIRECTORY ...] [OUTPATH]")
-        print()
-        print("You can insert the following variables in the path OUTPATH:")
-        print("          {date} . . . . Date of the recording (e.g. 2020-06-01)")
-        print("          {hour} . . . . Hour of the recording (e.g. 19)")
-        print("           {min} . . . . Minute of the recording (e.g. 20)")
-        print("           {sec} . . . . Second of the recording (e.g. 24)")
-        print("         {scene} . . . . Scene name (e.g. MixPre)")
-        print("          {take} . . . . Take Number (e.g. 001)")
-        print("          {tape} . . . . Identifier for the Tape/SD-Card")
-        print("       {circled} . . . . Circled Files (e.g. CIRCLED)")
-        print("   {tracknumber} . . . . Number of the track (e.g. 001)")
-        print("     {trackname} . . . . Name of the track as chosen on the recorder")
-        print()
 
-    else:
-        # The first sys.argv is the name of the script itself, so ignore it
-        args    = sys.argv[1:]
-        front  = " ".join(list(set(args[:-1])))
-        outpath  = args[-1]
+# Not implemented yet
+FLAGS = [
+    "--ignore-mixdown",
+    "--only-circled",
+    "--flac",
+    "--32",
+    "--24",
+    "--16",
+    "-d/--dry-run",
+    "-open-destination"
+]
 
-        args = shlex.split(front)
-        options = {k: True if v.startswith('-') else v
-           for k,v in zip(args, args[1:]+["--"]) if k.startswith('-')}
+# Not implemented yet
+OPTIONS = [
+    "-f/--filename",
+    "-t/--takes",    # Include takes from till
+    "-x/--ignore",   # Ignore takes from till
+    "-s/--scene"     # Override Scenename
+    "-c/--channel"   # Override Channel Name
+]
 
-        print("Options: {}".format(options))
-        print("outpath: {}".format(outpath))
+
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.argument('inpaths', nargs=-1)
+@click.argument('outpath', nargs=1)
+@click.option('--overwrite/-y', is_flag=True, help="Overwrite existing files without asking")
+@click.option('--only-circled', is_flag=True, help="Use only circled takes")
+@click.option('--replace', multiple=True, help="Replace this string in OUTPATH")
+@click.option('--with', 'with_', multiple=True, help="With that string")
+@click.option('--dry-run/-d', is_flag=True, help="Don't write, just print")
+@click.option('--ignore-tracks', help="Ignore certain tracks (see section \"Filters\"")
+@click.option('--include-tracks', help="Include certain tracks (see section \"Filters\"")
+def main(inpaths, outpath, overwrite, only_circled, replace, with_, dry_run, ignore_tracks, include_tracks):
+    """
+        ============================ MIXPRESPLIT ================================
+        This is a CLI-Utility that helps splitting polyWav files that are made by a Sounddevices MixPre Recorder.
+       
+        This is (for now) more useful than the existing solution by Sounddevices because it can handle 32 Bit recordings properly and can create output directories based on the metadata. Make sure you have ffmpeg installed : )
+        
+        \b
+        You can insert the following variables in the path OUTPATH:
+        {date} . . . . . Date of the recording (e.g. 2020-06-01)
+        {hour} . . . . . Hour of the recording (e.g. 19)
+        {min}  . . . . . Minute of the recording (e.g. 20)
+        {sec}  . . . . . Second of the recording (e.g. 24)
+        {scene}  . . . . Scene name (e.g. MixPre)
+        {take} . . . . . Take Number (e.g. 001)
+        {tape} . . . . . Identifier for the Tape/SD-Card
+        {circled}  . . . Circled Files (e.g. CIRCLED)
+        {tracknumber}. . Number of the track (e.g. 001)
+        {trackname}. . . Name of the track as chosen on the recorder
+
+        \b
+        You can use Filters to ignore/include:
+        all  . . . . . . all files
+        mixdown  . . . . the mixdown tracks
+        4  . . . . . . . a single track
+        4,6  . . . . . . a list of tracks
+        4-8  . . . . . . a range of tracks
+        "foo"  . . . . . anything with "foo" in the track name
+    """
+
+    options = {
+        "overwrite" : overwrite,
+        "only-circled" : only_circled,
+        "replace" : replace,
+        "with" : with_,
+        "dry-run" : dry_run,
+        "ignore-tracks" : ignore_tracks,
+        "include-tracks" : include_tracks
+    }
+
+    if len(options["replace"]) != len(options["with"]):
+        print("Error:    You wrote {} \"--replace\" and {} \"--with\" options!".format(len(options["replace"]), len(options["with"])))
+        print("Solution: Use a \"--with\" option for each \"--replace\" option (same count)")
         exit()
-        
-        # Get a flat list of wavfiles from all inpaths
-        infiles = []
-        for inpath in inpaths:
-            wavs = get_wavs_files(inpath)
-            for wav in wavs:
-                infiles.append(wav)
+    
+    # Get a flat list of wavfiles from all inpaths
+    infiles = []
+    for inpath in inpaths:
+        wavs = get_wavs_files(inpath)
+        for wav in wavs:
+            infiles.append(wav)
 
-        # Read the track metadata
-        metas = [read_metadata(i) for i in infiles]
-        total_takes = len(metas)
-        total_duration = datetime.timedelta(seconds=sum([d.total_seconds for d in metas]))
-        print("Processing {} take(s) with a total duration of {}".format(total_takes, total_duration))
-        
-        # Split the polywavs
-        for meta in metas:
-            print("\n{} (Take [{}/{}] from {}): Splitting {} ({} channels, Duration: {}) ...".format(meta.scene, meta.take, total_takes, meta.datestring, meta.filename, len(meta.tracks.keys()), meta.duration))
-            split(meta, outpath)
+    # Read the track metadata
+    metas = [read_metadata(i) for i in infiles]
+    total_takes = len(metas)
+    total_duration = datetime.timedelta(seconds=sum([d.total_seconds for d in metas]))
+    print("Processing {} take(s) with a total duration of {}".format(total_takes, total_duration))
+
+    # Export only circled takes
+    if options["only-circled"]:
+        metas = [m for m in metas if m.circled]
+    
+    # Split the polywavs
+    for meta in metas:
+        print("\n{} (Take [{}/{}] from {}): Splitting {} ({} channels, Duration: {}) ...".format(meta.scene, meta.take, total_takes, meta.datestring, meta.filename, len(meta.tracks.keys()), meta.duration))
+        split(meta, outpath, options)
+
+
 
 
 if __name__ == "__main__":
