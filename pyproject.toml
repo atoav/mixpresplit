@@ -3,6 +3,20 @@ name = "mixpresplit"
 version = "0.1.0"
 description = "CLI Utility that allows splitting mixpre polywav files"
 authors = ["David Huss <dh@atoav.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/atoav/mixpresplit"
+repository = "https://github.com/atoav/mixpresplit"
+keywords = ["audio"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Sound/Audio :: Conversion",
+    "Topic :: Multimedia :: Sound/Audio"
+]
+include = [
+    "LICENSE",
+]
 
 [tool.poetry.dependencies]
 python = "^3.8"
