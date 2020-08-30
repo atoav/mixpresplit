@@ -127,8 +127,6 @@ class Metadata():
     def add_track(self, tracknumber: int, trackname: str) -> "Metadata":
         if not tracknumber in self.tracks:
             self.tracks[tracknumber] = trackname
-            info = WavInfoReader(self.filepath.replace("\\", "/"))
-            info.ixml.track_list
         return self
 
     def __str__(self) -> str:
@@ -175,8 +173,26 @@ def read_metadata(path: str) -> "Metadata":
     meta.set_circled([l.split("=")[1]=="TRUE" for l in metadata.bext.description.split("\r\n") if l.startswith("sCIRCLED")][0])
     meta.set_samplecount(metadata.data.frame_count)
 
+    # Always subtract 2 from regular (non-mixdown) channelnumbers to match the device channels
+    index_offset = 2
+    used_indices = []
+
+    # Process the regular Channels first (excluding downmixes)
     for track in metadata.ixml.track_list:
-        meta.add_track(int(track.interleave_index), track.name)
+        if not track.name in ["MixL", "MixR"]:
+            index = int(track.channel_index) - index_offset
+            meta.add_track(index, track.name)
+            used_indices.append(index)
+
+    # Add Mix Tracks last (to avoid messing with the channel numbers)
+    for track in metadata.ixml.track_list:
+        if track.name in ["MixL", "MixR"]:
+            if track.name == "MixL":
+                index = 9
+            else:
+                index = 10
+            meta.add_track(index, track.name)
+            used_indices.append(index)
 
     return meta
 
@@ -483,6 +499,20 @@ def main(inpaths, outpath, overwrite, only_circled, replace, with_, dry_run, ope
         'foo'  . . . . . . anything with "foo" in the track name
         '!foo' . . . . . . anything not containing "foo"
     """
+
+    options = {
+        "overwrite" : overwrite,
+        "only-circled" : only_circled,
+        "replace" : replace,
+        "with" : with_,
+        "dry-run" : dry_run,
+        "tracks" : tracks,
+        "takes" : takes,
+        "open" : open_,
+        "flac" : flac,
+        "24" : bit24,
+        "16" : bit16
+    }
 
 
     # Check if there is a equal number of replace and with options, warn and exit if not
