@@ -25,7 +25,7 @@ def runner():
 
 
 def test_version():
-    assert mixpresplit.__version__ == '0.1.1'
+    assert mixpresplit.__version__ == '0.1.2'
 
 
 def load_samples():
@@ -94,6 +94,171 @@ def test_channels(runner):
             print()
         assert set(existing_tracks) == set(expected_tracks)
 
+    if result.exception:
+        traceback.print_exception(*result.exc_info)
+    assert result.exit_code == 0
+
+
+def test_filter_take(runner):
+    """
+    Test if all files map correctly to the corresponding channels
+    """
+    sample_descriptions = load_samples()
+    sample_descriptions = [s for s in sample_descriptions if s["path"].startswith("channeltests") and s["path"].lower().endswith("001.wav")]
+    input_directory = "./testsamples/channeltests"
+    result = runner.invoke(main, ["--dry-run", "--takes", "1", input_directory, "../{scene}-{take}.{tracknumber}_{trackname}"])
+    samples = [l.strip() for l in result.output.split("\nTestsample ") if l != ""][1:]
+    sample = [
+        {   
+            "name":  l.split("\n")[0].split("Splitting")[1].split(" (")[0].split(".WAV")[0].strip(),
+            "tracks": [
+                re.match(TRACK_PATTERN, t.strip()).groupdict() for t in l.split("\n")[1:]
+                ]
+        } for l in samples
+    ][0]
+
+    # Check if take is right
+    assert int(sample["tracks"][0]["take"]) == 1
+
+    print(sample["tracks"][0]["take"])
+    
+    if result.exception:
+        traceback.print_exception(*result.exc_info)
+    assert result.exit_code == 0
+
+
+def test_filter_track1(runner):
+    """
+    Test if the track filters work as expected
+    """
+    goal_track = 1
+    sample_descriptions = load_samples()
+    sample_descriptions = [s for s in sample_descriptions if s["path"].startswith("channeltests") and s["path"].lower().endswith("001.wav")]
+    input_directory = "./testsamples/channeltests"
+    result = runner.invoke(main, ["--dry-run", "--takes", "1", "--tracks", str(goal_track), input_directory, "../{scene}-{take}.{tracknumber}_{trackname}"])
+    samples = [l.strip() for l in result.output.split("\nTestsample ") if l != ""][1:]
+    sample = [
+        {   
+            "name":  l.split("\n")[0].split("Splitting")[1].split(" (")[0].split(".WAV")[0].strip(),
+            "tracks": [
+                re.match(TRACK_PATTERN, t.strip()).groupdict() for t in l.split("\n")[1:]
+                ]
+        } for l in samples
+    ][0]
+
+    # Check if take is right
+    assert int(sample["tracks"][0]["take"]) == 1
+
+    # Check if track is right length
+    assert len(sample["tracks"]) == 1
+
+    # Check if track is right length
+    assert int(sample["tracks"][0]["tracknumber"]) == goal_track
+
+    
+    if result.exception:
+        traceback.print_exception(*result.exc_info)
+    assert result.exit_code == 0
+
+def test_filter_track8(runner):
+    """
+    Test if the track filters work as expected
+    """
+    goal_track = 8
+    sample_descriptions = load_samples()
+    sample_descriptions = [s for s in sample_descriptions if s["path"].startswith("channeltests") and s["path"].lower().endswith("001.wav")]
+    input_directory = "./testsamples/channeltests"
+    result = runner.invoke(main, ["--dry-run", "--takes", "1", "--tracks", str(goal_track), input_directory, "../{scene}-{take}.{tracknumber}_{trackname}"])
+    samples = [l.strip() for l in result.output.split("\nTestsample ") if l != ""][1:]
+    sample = [
+        {   
+            "name":  l.split("\n")[0].split("Splitting")[1].split(" (")[0].split(".WAV")[0].strip(),
+            "tracks": [
+                re.match(TRACK_PATTERN, t.strip()).groupdict() for t in l.split("\n")[1:]
+                ]
+        } for l in samples
+    ][0]
+
+    # Check if take is right
+    assert int(sample["tracks"][0]["take"]) == 1
+
+    # Check if track is right length
+    assert len(sample["tracks"]) == 1
+
+    # Check if track is right length
+    assert int(sample["tracks"][0]["tracknumber"]) == goal_track
+
+    
+    if result.exception:
+        traceback.print_exception(*result.exc_info)
+    assert result.exit_code == 0
+
+
+def test_filter_tracknot8(runner):
+    """
+    Test if the track filters work as expected
+    """
+    goal_track = 8
+    sample_descriptions = load_samples()
+    sample_descriptions = [s for s in sample_descriptions if s["path"].startswith("channeltests") and s["path"].lower().endswith("001.wav")]
+    input_directory = "./testsamples/channeltests"
+    result = runner.invoke(main, ["--dry-run", "--takes", "1", "--tracks", "!"+str(goal_track), input_directory, "../{scene}-{take}.{tracknumber}_{trackname}"])
+    samples = [l.strip() for l in result.output.split("\nTestsample ") if l != ""][1:]
+    sample = [
+        {   
+            "name":  l.split("\n")[0].split("Splitting")[1].split(" (")[0].split(".WAV")[0].strip(),
+            "tracks": [
+                re.match(TRACK_PATTERN, t.strip()).groupdict() for t in l.split("\n")[1:]
+                ]
+        } for l in samples
+    ][0]
+
+    # Check if take is right
+    assert int(sample["tracks"][0]["take"]) == 1
+
+    # Check if track is right length
+    assert len(sample["tracks"]) == 9
+
+    # Check if track is right length
+    for t in sample["tracks"]:
+        assert int(t["tracknumber"]) != goal_track
+
+    
+    if result.exception:
+        traceback.print_exception(*result.exc_info)
+    assert result.exit_code == 0
+
+def test_filter_tracknotrange(runner):
+    """
+    Test if the track filters work as expected
+    """
+    goal_track = [7,8]
+    sample_descriptions = load_samples()
+    sample_descriptions = [s for s in sample_descriptions if s["path"].startswith("channeltests") and s["path"].lower().endswith("001.wav")]
+    input_directory = "./testsamples/channeltests"
+    result = runner.invoke(main, ["--dry-run", "--takes", "1", "--tracks", "!"+str(goal_track[0])+"-"+str(goal_track[1]), input_directory, "../{scene}-{take}.{tracknumber}_{trackname}"])
+    samples = [l.strip() for l in result.output.split("\nTestsample ") if l != ""][1:]
+    sample = [
+        {   
+            "name":  l.split("\n")[0].split("Splitting")[1].split(" (")[0].split(".WAV")[0].strip(),
+            "tracks": [
+                re.match(TRACK_PATTERN, t.strip()).groupdict() for t in l.split("\n")[1:]
+                ]
+        } for l in samples
+    ][0]
+
+    # Check if take is right
+    assert int(sample["tracks"][0]["take"]) == 1
+
+    # Check if track is right length
+    assert len(sample["tracks"]) == 8
+
+    # Check if track is right length
+    for t in sample["tracks"]:
+        assert int(t["tracknumber"]) != goal_track[0]
+        assert int(t["tracknumber"]) != goal_track[1]
+
+    
     if result.exception:
         traceback.print_exception(*result.exc_info)
     assert result.exit_code == 0
