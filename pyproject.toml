@@ -6,7 +6,7 @@ authors = ["David Huss <dh@atoav.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-wavinfo = { path = "../wavinfo/" }
+wavinfo = "^1.6"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
