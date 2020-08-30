@@ -30,7 +30,7 @@ filter_track_pattern_word  = re.compile(r'^(!?[A-z0-9-_]+)$')
 
 
 class Metadata():
-    def __init__(self):
+    def __init__(self)  -> "Metadata":
         self.filepath = None
         self.datestring = None
         self.timestring = None
@@ -45,44 +45,44 @@ class Metadata():
         self.samplecount = None
         self.tracks = OrderedDict()
 
-    def set_filepath(self, filepath):
+    def set_filepath(self, filepath: str):
         self.filepath = filepath
         return self
 
     @property
-    def filename(self):
+    def filename(self) -> str:
         if self.filepath is None:
             return ""
         else:
             return os.path.basename(self.filepath)
 
     @property
-    def directory(self):
+    def directory(self) -> str:
         if self.filepath is None:
             return ""
         else:
             return os.path.dirname(self.filepath)
 
     @property
-    def total_seconds(self):
+    def total_seconds(self) -> float:
         if self.samplecount is None:
             return False
         else:
             return self.samplecount / self.samplerate
 
     @property
-    def duration(self):
+    def duration(self) -> datetime.timedelta:
         return datetime.timedelta(seconds=self.total_seconds)
 
-    def set_datestring(self, datestring):
+    def set_datestring(self, datestring: str) -> str:
         self.datestring = datestring
         return self
 
-    def set_timestring(self, timestring):
+    def set_timestring(self, timestring: str) -> str:
         self.timestring = timestring
         return self
 
-    def set_codec(self, bitrate):
+    def set_codec(self, bitrate: int) -> "Metadata":
         if bitrate == 32:
             self.codec = "pcm_f32le"
         elif bitrate == 24:
@@ -92,46 +92,46 @@ class Metadata():
             self.codec = "pcm_s16le"
         return self
 
-    def set_samplerate(self, samplerate):
+    def set_samplerate(self, samplerate: int) -> "Metadata":
         self.samplerate = int(samplerate)
         return self
 
-    def set_channels(self, channels):
+    def set_channels(self, channels: int) -> "Metadata":
         self.channels = int(channels)
         return self
 
-    def set_scene(self, scene):
+    def set_scene(self, scene: str) -> "Metadata":
         self.scene = scene
         return self
 
-    def set_take(self, take):
+    def set_take(self, take: int) -> "Metadata":
         self.take = int(take)
         return self
 
-    def set_tape(self, tape):
+    def set_tape(self, tape: str) -> "Metadata":
         self.tape = tape
         return self
 
-    def set_circled(self, circled):
-        self.circled = circled == "TRUE"
+    def set_circled(self, circled: bool) -> "Metadata":
+        self.circled = bool(circled)
         return self
 
-    def set_speed(self, speed):
+    def set_speed(self, speed: str) -> "Metadata":
         self.speed = speed
         return self
 
-    def set_samplecount(self, samplecount):
+    def set_samplecount(self, samplecount: int) -> "Metadata":
         self.samplecount = int(samplecount)
         return self
 
-    def add_track(self, tracknumber: int, trackname: str):
+    def add_track(self, tracknumber: int, trackname: str) -> "Metadata":
         if not tracknumber in self.tracks:
             self.tracks[tracknumber] = trackname
             info = WavInfoReader(self.filepath.replace("\\", "/"))
             info.ixml.track_list
         return self
 
-    def __str__(self):
+    def __str__(self) -> str:
         lines = []
         lines.append("Metadata():")
         lines.append("   filepath:   {}".format(self.filepath))
@@ -158,7 +158,7 @@ class Metadata():
 
 
 
-def read_metadata(path: str):
+def read_metadata(path: str) -> "Metadata":
     metadata = WavInfoReader(path)
 
     meta = Metadata()
@@ -206,7 +206,7 @@ def expand_outpath(outpath: str , meta: dict, channel: int=0) -> str:
     return outpath
 
 
-def process_files(meta, outpath, options):
+def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
     # Expand the output
     outpath = expand_outpath(outpath, meta)
 
@@ -296,7 +296,7 @@ def process_files(meta, outpath, options):
     return written_to
 
 
-def filter_tracks(tracknumber, trackname, options):
+def filter_tracks(tracknumber: int, trackname: str, options: dict) -> bool:
     """
     Filter out tracks 
     """
@@ -346,7 +346,7 @@ def filter_tracks(tracknumber, trackname, options):
     return included
 
 
-def filter_takes(metas, options):
+def filter_takes(metas: ["Metadata"], options: dict) -> ["Metadata"]:
     """
     Filter out takes 
     """
@@ -403,7 +403,7 @@ def filter_takes(metas, options):
     return filtered_metas
 
 
-def find_common_dir(filepaths, depth=5):
+def find_common_dir(filepaths: [str], depth: int =5) -> str:
     """
     Find a common path in a bunch of paths, bound by depth
     Return first path if the number of iterations is exceeded
@@ -423,7 +423,7 @@ def find_common_dir(filepaths, depth=5):
 
 
 
-def open_filebrowser(written_to):
+def open_filebrowser(written_to: [str]) -> None:
     """
     Opens a system specific filebrowser at a folder that makes sense
     """
@@ -446,7 +446,7 @@ def open_filebrowser(written_to):
 @click.option('--only-circled', is_flag=True, help="Use only circled takes")
 @click.option('--replace', multiple=True, help="Replace this string in OUTPATH")
 @click.option('--with', 'with_', multiple=True, help="With that string")
-@click.option('--dry-run/-d', is_flag=True, help="Don't write, just print")
+@click.option('--dry-run', is_flag=True, help="Don't write, just print")
 @click.option('--tracks', help="Only use these tracks (see section \"Filters\")")
 @click.option('--takes', help="Only use these takes (see section \"Filters\")")
 @click.option('--open', 'open_', is_flag=True, help="Open destination folder afterwards")
@@ -484,19 +484,6 @@ def main(inpaths, outpath, overwrite, only_circled, replace, with_, dry_run, ope
         '!foo' . . . . . . anything not containing "foo"
     """
 
-    options = {
-        "overwrite" : overwrite,
-        "only-circled" : only_circled,
-        "replace" : replace,
-        "with" : with_,
-        "dry-run" : dry_run,
-        "tracks" : tracks,
-        "takes" : takes,
-        "open" : open_,
-        "flac" : flac,
-        "24" : bit24,
-        "16" : bit16
-    }
 
     # Check if there is a equal number of replace and with options, warn and exit if not
     if len(options["replace"]) != len(options["with"]):
