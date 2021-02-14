@@ -25,7 +25,7 @@ def runner():
 
 
 def test_version():
-    assert mixpresplit.__version__ == '0.1.2'
+    assert mixpresplit.__version__ == '0.1.3'
 
 
 def load_samples():

@@ -124,9 +124,9 @@ class Metadata():
         self.samplecount = int(samplecount)
         return self
 
-    def add_track(self, tracknumber: int, trackname: str) -> "Metadata":
-        if not tracknumber in self.tracks:
-            self.tracks[tracknumber] = trackname
+    def add_track(self, internal_tracknumber: int, tracknumber: int, trackname: str) -> "Metadata":
+        if not internal_tracknumber in self.tracks:
+            self.tracks[internal_tracknumber] = {"trackname": trackname, "tracknumber": tracknumber}
         return self
 
     def __str__(self) -> str:
@@ -175,27 +175,23 @@ def read_metadata(path: str) -> "Metadata":
 
     # Always subtract 2 from regular (non-mixdown) channelnumbers to match the device channels
     index_offset = 2
-    used_indices = []
+
+    # DEBUG
+    for track in metadata.ixml.track_list:
+        print(track)
 
     # Process the regular Channels first (excluding downmixes)
     for track in metadata.ixml.track_list:
         if not track.name in ["MixL", "MixR"]:
-            index = int(track.channel_index) - index_offset
-            meta.add_track(index, track.name)
-            used_indices.append(index)
-
-    # Add Mix Tracks last (to avoid messing with the channel numbers)
-    for track in metadata.ixml.track_list:
-        if track.name in ["MixL", "MixR"]:
-            if track.name == "MixL":
-                index = 9
-            else:
-                index = 10
-            meta.add_track(index, track.name)
-            used_indices.append(index)
+            tracknumber = int(track.channel_index) - index_offset
+        elif track.name == "MixL":
+            tracknumber = 9
+        elif track.name == "MixR":
+            tracknumber = 10
+        internal_tracknumber = int(track.interleave_index)
+        meta.add_track(internal_tracknumber, tracknumber, track.name)
 
     return meta
-
 
 
 def get_wavs_files(inpath: str) -> [str]:
@@ -213,12 +209,18 @@ def expand_outpath(outpath: str , meta: dict, channel: int=0) -> str:
     outpath = outpath.replace("{scene}", meta.scene)
     outpath = outpath.replace("{take}", str(meta.take))
     outpath = outpath.replace("{tape}", meta.tape)
+
     if channel != 0:
-        outpath = outpath.replace("{tracknumber}", str(channel))
-        outpath = outpath.replace("{n}", str(channel))
-        outpath = outpath.replace("{trackname}", meta.tracks[channel])
+        track = meta.tracks[channel]
+        outpath = outpath.replace("{tracknumber}", str(track["tracknumber"]))
+        outpath = outpath.replace("{track}", str(track["tracknumber"]))
+        outpath = outpath.replace("{n}", str(track["tracknumber"]))
+        outpath = outpath.replace("{trackname}", track["trackname"])
+        outpath = outpath.replace("{name}", track["trackname"])
+
     if meta.circled:
         outpath = outpath.replace("{circled}", "CIRCLED")
+
     return outpath
 
 
@@ -227,7 +229,7 @@ def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
     outpath = expand_outpath(outpath, meta)
 
     # Construct channel mapping and filenames for output
-    outfiles = [(i, trackname) for i, trackname in meta.tracks.items()]
+    outfiles = [(i, track) for i, track in meta.tracks.items()]
 
     # If no Stereo Master is recorded first channel would be at index 3
     # correct this offset by subtracting this
@@ -237,8 +239,7 @@ def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
     written_to = []
     
     # Add -map [FL] /my/path/SceneName-001.1-Trackname.WAV:
-    for i, trackname  in outfiles:
-
+    for i, track  in outfiles:
         # Get the input codec as a default
         output_codec = meta.codec
         file_extension = ".wav"
@@ -273,7 +274,7 @@ def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
             cmd.append("s16")
 
         # Skip loop to end if track is filtered
-        if not filter_tracks(i, trackname, options):
+        if not filter_tracks(track, options):
             continue
         
         # expand the Outpath per Track
@@ -312,7 +313,7 @@ def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
     return written_to
 
 
-def filter_tracks(tracknumber: int, trackname: str, options: dict) -> bool:
+def filter_tracks(track: dict, options: dict) -> bool:
     """
     Filter out tracks 
     """
@@ -333,20 +334,20 @@ def filter_tracks(tracknumber: int, trackname: str, options: dict) -> bool:
         # Match for ranges like 1-3
         if re.match(filter_track_pattern_range, match):
             start, end = [int(i) for i in match.split("-")]
-            if tracknumber in range(start, end+1):
+            if track["tracknumber"] in range(start, end+1):
                 included = included or True
         # Match for single digit
         elif re.match(filter_track_pattern_digit, match):
-            if tracknumber == int(match):
+            if track["tracknumber"] == int(match):
                 included = included or True
         # Match for strings
         elif re.match(filter_track_pattern_word, match):
             if match.lower() == "all":
                 included = included or True
             elif match.lower() == "mixdown":
-                if "Mix.L" in trackname or "Mix.R" in trackname:
+                if "MixL" in track["trackname"] or "MixR" in track["trackname"]:
                     included = included or True
-            elif match in trackname:
+            elif match in track["trackname"]:
                 included = included or True
 
         # XOR the two bools "included" and "inverted":

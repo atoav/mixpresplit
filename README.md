@@ -173,6 +173,13 @@ mixpresplit uses Python 3 and depends on ffmpeg. For Python dependency managment
 4. Install with `pip install mixpresplit` or `pip3 install mixpresplit`
 5. Run with `mixpresplit`
 
+## Using pyenv
+
+1. Run `python3 -m venv env` to create a new virtual environment in the directory`env`
+2. Activate it via `source env/bin/activate`
+3. Install the dependencies within the env: `pip3 install -r requirements.txt`
+4. Run with `poetry run mixpresplit -h`
+
 ## Run Tests
 
 Make sure you have the `python-pytest` package installed. Then run `poetry run py.test`
