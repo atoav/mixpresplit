@@ -198,8 +198,9 @@ def read_metadata(path: str) -> "Metadata":
             internal_tracknumber = int(track.interleave_index)
             meta.add_track(internal_tracknumber, tracknumber, track.name)
     else:
-        for i in range(8):
-            meta.add_track(i, i, f"unknown{i}")
+        names = ["Vocs", "Synth", "Bass-DI", "Bass-Mic", "OVRL", "OVRR", "Room", "SNR-Top", "Kick", "SNR-Bottom"]
+        for i in range(10):
+            meta.add_track(i, i, names[i])
 
     return meta
 
