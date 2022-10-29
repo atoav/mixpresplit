@@ -186,20 +186,20 @@ def read_metadata(path: str) -> "Metadata":
     # Always subtract 2 from regular (non-mixdown) channelnumbers to match the device channels
     index_offset = 2
 
-    # DEBUG
-    for track in metadata.ixml.track_list:
-        print(track)
-
     # Process the regular Channels first (excluding downmixes)
-    for track in metadata.ixml.track_list:
-        if not track.name in ["MixL", "MixR"]:
-            tracknumber = int(track.channel_index) - index_offset
-        elif track.name == "MixL":
-            tracknumber = 9
-        elif track.name == "MixR":
-            tracknumber = 10
-        internal_tracknumber = int(track.interleave_index)
-        meta.add_track(internal_tracknumber, tracknumber, track.name)
+    if metadata.ixml is not None:
+        for track in metadata.ixml.track_list:
+            if not track.name in ["MixL", "MixR"]:
+                tracknumber = int(track.channel_index) - index_offset
+            elif track.name == "MixL":
+                tracknumber = 9
+            elif track.name == "MixR":
+                tracknumber = 10
+            internal_tracknumber = int(track.interleave_index)
+            meta.add_track(internal_tracknumber, tracknumber, track.name)
+    else:
+        for i in range(8):
+            meta.add_track(i, i, f"unknown{i}")
 
     return meta
 
