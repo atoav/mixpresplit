@@ -166,9 +166,19 @@ def read_metadata(path: str) -> "Metadata":
     meta.set_codec(metadata.fmt.bits_per_sample)
     meta.set_samplerate(metadata.fmt.sample_rate)
     meta.set_channels(metadata.fmt.channel_count)
-    meta.set_scene(metadata.ixml.scene)
-    meta.set_take(metadata.ixml.take)
-    meta.set_tape(metadata.ixml.tape)
+    if metadata.ixml is not None:
+        meta.set_scene(metadata.ixml.scene)
+        meta.set_take(metadata.ixml.take)
+        meta.set_tape(metadata.ixml.tape)
+    else:
+
+        meta.set_scene("unknown")
+        try:
+            take = int(path.lower().rsplit(".wav", 1)[0][-3:])
+        except ValueError:
+            take = 99
+        meta.set_take(take)
+        meta.set_tape("unknown")
     meta.set_speed([l.split("=")[1] for l in metadata.bext.description.split("\r\n") if l.startswith("sSPEED")][0])
     meta.set_circled([l.split("=")[1]=="TRUE" for l in metadata.bext.description.split("\r\n") if l.startswith("sCIRCLED")][0])
     meta.set_samplecount(metadata.data.frame_count)
