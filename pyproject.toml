@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mixpresplit"
-version = "0.1.7"
+version = "0.1.8"
 description = "CLI Utility that allows splitting mixpre polywav files"
 authors = ["David Huss <dh@atoav.com>"]
 
@@ -14,6 +14,9 @@ pytest = "^5.2"
 
 [tool.poetry.scripts]
 mixpresplit = "mixpresplit.cli:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.1"
 
 [build-system]
 requires = ["poetry>=0.12"]

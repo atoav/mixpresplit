@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+#alias poetry='python3 /home/$USER/.poetry/bin/poetry'
 
 # if any command inside script returns error, exit and return that error
 set -e
