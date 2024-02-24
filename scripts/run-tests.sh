@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-alias poetry='python3 /home/$USER/.poetry/bin/poetry'
 
 # if any command inside script returns error, exit and return that error
 set -e
@@ -10,4 +9,4 @@ set -e
 # thanks to it we can just enter `./scripts/run-tests.sh`
 cd "${0%/*}/.."
 
-poetry run py.test
+poetry run pytest
