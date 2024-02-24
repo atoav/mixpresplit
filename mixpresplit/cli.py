@@ -267,8 +267,10 @@ def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
         cmd = [
             "ffmpeg",
             "-i", meta.filepath,
-            "-c:a", meta.codec,   # <-- input codec, output codec below!
-            "-map_metadata", "0", # <-- Try to preserve cue points
+            "-c:a", meta.codec,       # <-- input codec, output codec below!
+            "-map_metadata", "0",     # <-- Try to preserve cue points
+            "-map_metadata", "0:s:0", # <-- Map stream Metadata as well
+            "-write_bext", "1",       # <-- Also preserve bext / timecode / other
             "-bitexact",
         ]
 
