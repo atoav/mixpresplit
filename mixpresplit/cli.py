@@ -166,9 +166,19 @@ def read_metadata(path: str) -> "Metadata":
     meta.set_codec(metadata.fmt.bits_per_sample)
     meta.set_samplerate(metadata.fmt.sample_rate)
     meta.set_channels(metadata.fmt.channel_count)
-    meta.set_scene(metadata.ixml.scene)
-    meta.set_take(metadata.ixml.take)
-    meta.set_tape(metadata.ixml.tape)
+    if metadata.ixml is not None:
+        meta.set_scene(metadata.ixml.scene)
+        meta.set_take(metadata.ixml.take)
+        meta.set_tape(metadata.ixml.tape)
+    else:
+
+        meta.set_scene("unknown")
+        try:
+            take = int(path.lower().rsplit(".wav", 1)[0][-3:])
+        except ValueError:
+            take = 99
+        meta.set_take(take)
+        meta.set_tape("unknown")
     meta.set_speed([l.split("=")[1] for l in metadata.bext.description.split("\r\n") if l.startswith("sSPEED")][0])
     meta.set_circled([l.split("=")[1]=="TRUE" for l in metadata.bext.description.split("\r\n") if l.startswith("sCIRCLED")][0])
     meta.set_samplecount(metadata.data.frame_count)
@@ -176,20 +186,21 @@ def read_metadata(path: str) -> "Metadata":
     # Always subtract 2 from regular (non-mixdown) channelnumbers to match the device channels
     index_offset = 2
 
-    # DEBUG
-    for track in metadata.ixml.track_list:
-        print(track)
-
     # Process the regular Channels first (excluding downmixes)
-    for track in metadata.ixml.track_list:
-        if not track.name in ["MixL", "MixR"]:
-            tracknumber = int(track.channel_index) - index_offset
-        elif track.name == "MixL":
-            tracknumber = 9
-        elif track.name == "MixR":
-            tracknumber = 10
-        internal_tracknumber = int(track.interleave_index)
-        meta.add_track(internal_tracknumber, tracknumber, track.name)
+    if metadata.ixml is not None:
+        for track in metadata.ixml.track_list:
+            if not track.name in ["MixL", "MixR"]:
+                tracknumber = int(track.channel_index) - index_offset
+            elif track.name == "MixL":
+                tracknumber = 9
+            elif track.name == "MixR":
+                tracknumber = 10
+            internal_tracknumber = int(track.interleave_index)
+            meta.add_track(internal_tracknumber, tracknumber, track.name)
+    else:
+        names = ["Vocs", "Synth", "Bass-DI", "Bass-Mic", "OVRL", "OVRR", "Room", "SNR-Top", "Kick", "SNR-Bottom"]
+        for i in range(10):
+            meta.add_track(i, i, names[i])
 
     return meta
 
