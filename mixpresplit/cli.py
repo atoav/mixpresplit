@@ -177,8 +177,8 @@ def read_metadata(path: str) -> "Metadata":
     index_offset = 2
 
     # DEBUG
-    for track in metadata.ixml.track_list:
-        print(track)
+    # for track in metadata.ixml.track_list:
+    #     print(track)
 
     # Process the regular Channels first (excluding downmixes)
     for track in metadata.ixml.track_list:
@@ -253,7 +253,9 @@ def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
         cmd = [
             "ffmpeg",
             "-i", meta.filepath,
-            "-c:a", meta.codec, # <-- input codec, output codec below!
+            "-c:a", meta.codec,   # <-- input codec, output codec below!
+            "-map_metadata", "0", # <-- Try to preserve cue points
+            "-bitexact",
         ]
 
         # Which channel shall be used
