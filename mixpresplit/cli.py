@@ -272,6 +272,7 @@ def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
             "-map_metadata", "0:s:0", # <-- Map stream Metadata as well
             "-write_bext", "1",       # <-- Also preserve bext / timecode / other
             "-bitexact",
+            "-channel_layout", "mono" # <-- Set channel layout to mono, otherwise playback my be just on front left speaker
         ]
 
         # Which channel shall be used
