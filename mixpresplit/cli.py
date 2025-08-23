@@ -277,7 +277,7 @@ def process_files(meta: "Metadata", outpath: str, options: dict) -> [str]:
         # Which channel shall be used
         channel = i-smallest
         cmd.append("-af")
-        cmd.append("pan=1|c0=c{}".format(channel))
+        cmd.append("pan=mono|c0=c{}".format(channel))
 
         # Which Codec shall be used
         cmd.append("-c:a")
